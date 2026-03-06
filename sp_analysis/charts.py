@@ -1,34 +1,15 @@
 import pandas as pd
 import altair as alt
 
-# def _theme():
-#     return {
-#         'config': {
-#             'view': {
-#                 'continuousWidth': 220,
-#                 'continuousHeight': 160,
-#             }
-#         }
-#     }
 
-# alt.themes.register('sp_analysis', _theme)
-# alt.themes.enable('sp_analysis')
-# ─────────────────────────────────────────
-# DATA
-# ─────────────────────────────────────────
+def load_data(source: str = 'data/sp_data.csv') -> pd.DataFrame:
+    if source.startswith('http'):
+        url = source
+    else:
+        url = source
 
-def load_data() -> pd.DataFrame:
-    sheet_id = '1sREWbJdEYFjckWHcgAaUTnb6uQIuyM-bs-Un12ZmVaA'
-    gid = '598429315'
-    url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&gid={gid}'
     df = pd.read_csv(url)
-    df.dropna(subset=['c1_visits'], inplace=True)
     return df
-
-
-# ─────────────────────────────────────────
-# TRANSFORMS
-# ─────────────────────────────────────────
 
 def clean_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
     """Coerce column to numeric and drop NaN rows."""
@@ -58,9 +39,6 @@ def prepare(df: pd.DataFrame, col: str, pct: bool = False) -> pd.DataFrame:
     return agg
 
 
-# ─────────────────────────────────────────
-# CHARTS
-# ─────────────────────────────────────────
 
 def facet_chart(
     data: pd.DataFrame,
