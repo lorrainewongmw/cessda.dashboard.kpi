@@ -9,4 +9,5 @@ dependencies = [
     "pandas>=3.0.1",
     "ipykernel",
     "pyyaml>=6.0.3",
+    "nbformat>=5.10.4",
 ]
