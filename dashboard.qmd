@@ -15,7 +15,7 @@ execute:
   echo: false
   warning: false
   message: false
-jupyter: cessda_report
+jupyter: sp-analysis
 ---
 
 ```{python}
