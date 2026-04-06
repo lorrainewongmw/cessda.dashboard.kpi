@@ -2,53 +2,52 @@ import pandas as pd
 import altair as alt
 
 
-def load_data(source: str = 'data/sp_data.csv') -> pd.DataFrame:
-    df = pd.read_csv(source)
-    return df
-
-
-def clean_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
-    """Coerce column to numeric and drop NaN rows."""
-    df = df.copy()
-    df[col] = pd.to_numeric(df[col], errors='coerce')
-    return df.dropna(subset=[col])
-
-
 # ── KPI metadata ───────────────────────────────────────────────────────────────
 
 KPI_LABELS = {
-    'c1_visits':         'Visits',
-    'c2_user':           'Users',
-    'c3_pdoDeliver_pid':     'PDO Deliveries',
-    'c4_events':         'Training Events',
-    'c6_eAttendees':     'Event Attendees',
-    'c8_allEvent':       'All Events',
-    'c10_pdoStored_pid':     'PDO Stored',
-    'c13_staff':         'Total Staff',
-    'c14_nfunds':        'National Funds',
-    'c15_cstaff':        'Contract Staff',
-    'c16_cfunds':        'Contract Funds',
-    'c19_pub':           'Publications',
+    'c1_visits':         'c1_visits',
+    'c2_user':           'c2_user',
+    'c3_pdoDeliver_pid': 'c3_pdoDeliver_pid',
+    'c4_events':         'c4_events',
+    'c6_eAttendees':     'c6_eAttendees',
+    'c8_allEvent':       'c8_allEvent',
+    'c10_pdoStored_pid': 'c10_pdoStored_pid',
+    'c13_staff':         'c13_staff',
+    'c14_nfunds':        'c14_nfunds',
+    'c15_cstaff':        'c15_cstaff',
+    'c16_cfunds':        'c16_cfunds',
+    'c19_pub':           'c19_pub',
 }
 
-# ── Data helper ────────────────────────────────────────────────────────────────
+STATUS_DOMAIN = ['Validated', 'To be validated', 'Missing']
+STATUS_RANGE  = ['steelblue', 'grey', 'red']
 
-def prepare_by_kpi_all_countries(
-    df: pd.DataFrame,
-    kpis: list[str],
-) -> pd.DataFrame:
-    """
-    Aggregate per country + year, melt into long format grouped by KPI.
+
+# ── Data helpers ───────────────────────────────────────────────────────────────
+
+def load_data(source: str = 'data/sp_data.csv') -> pd.DataFrame:
+    return pd.read_csv(source)
+
+
+def clean_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
+    """Coerce a column to numeric, converting invalid values to NaN."""
+    df = df.copy()
+    df[col] = pd.to_numeric(df[col], errors='coerce')
+    return df
+
+
+def prepare_by_kpi_all_countries(df: pd.DataFrame, kpis: list[str]) -> pd.DataFrame:
+    """Aggregate per country + year, melt into long format grouped by KPI.
+
     Returns columns: year, countryname, kpi, value
     """
     frames = []
     for col in kpis:
-        tmp = clean_column(df.copy(), col)
-        agg = tmp.groupby(['countryname', 'year'])[col].sum().reset_index()
+        tmp = clean_column(df, col)
+        agg = tmp.groupby(['countryname', 'year'])[col].sum(min_count=1).reset_index()
         agg = agg.rename(columns={col: 'value'})
         agg['kpi'] = KPI_LABELS.get(col, col)
         frames.append(agg)
-
     return pd.concat(frames, ignore_index=True)
 
 
@@ -60,22 +59,51 @@ def facet_chart_by_country(
     title: str,
     columns: int = 4,
 ) -> alt.FacetChart:
-    """
-    One panel per KPI for a single country.
-    Expects long-format DataFrame with columns: year, countryname, kpi, value
-    """
-    country_data = data[data['countryname'] == country]
+    country_data = data[data['countryname'] == country].copy()
+    country_data['status'] = country_data.apply(
+        lambda r: 'To be validated' if r['year'] == 2026
+        else ('Validated' if pd.notna(r['value']) else 'Missing'),
+        axis=1,
+    )
 
-    encode = dict(
+    base = alt.Chart(country_data)
+    xy = dict(
         x=alt.X('year:O', title=None),
         y=alt.Y('value:Q', title=None, axis=alt.Axis(tickCount=3, grid=False)),
     )
+    color = alt.Color(
+        'status:N',
+        scale=alt.Scale(domain=STATUS_DOMAIN, range=STATUS_RANGE),
+    )
 
-    line = alt.Chart(country_data).mark_line(color='steelblue').encode(**encode)
-    dots = alt.Chart(country_data).mark_point(filled=True, size=50, color='steelblue').encode(**encode)
+    line = base.mark_line(color='steelblue').encode(**xy)
+
+    dots = (
+        base.transform_filter('isValid(datum.value)')
+        .mark_point(filled=True)
+        .encode(
+            **xy,
+            color=color,
+            size=alt.condition(
+                alt.datum.year == 2026,
+                alt.value(120),
+                alt.value(50),
+            ),
+        )
+    )
+
+    nan_markers = (
+        base.transform_filter('!isValid(datum.value)')
+        .mark_point(filled=True, size=60, opacity=0.6, strokeWidth=2)
+        .encode(
+            x='year:O',
+            y=alt.value(0),
+            color=color,
+        )
+    )
 
     return (
-        (line + dots)
+        (line + dots + nan_markers)
         .properties(width=300)
         .facet(
             facet=alt.Facet(
@@ -89,8 +117,9 @@ def facet_chart_by_country(
         .resolve_axis(x='independent')
         .properties(
             title=alt.TitleParams(
-                text=title, fontSize=16, fontWeight='bold', anchor='middle'
+                text=title, fontSize=16, fontWeight='bold', anchor='middle',
             )
         )
         .configure_view(stroke=None)
+        .configure_legend(orient='top', direction='horizontal', title=None)
     )
