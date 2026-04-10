@@ -73,13 +73,6 @@ facet_chart_by_country(long_df, 'Austria', title='Austria')
 facet_chart_by_country(long_df, 'Belgium', title='Belgium')
 ```
 
-# Switzerland {#switzerland}
-
-## Row
-
-```{python}
-facet_chart_by_country(long_df, 'Switzerland', title='Switzerland')
-```
 
 # Czecha {#czecha}
 
@@ -192,6 +185,16 @@ facet_chart_by_country(long_df, 'North Macedonia', title='North Macedonia')
 
 ```{python}
 facet_chart_by_country(long_df, 'Portugal', title='Portugal')
+```
+
+
+
+# Switzerland {#switzerland}
+
+## Row
+
+```{python}
+facet_chart_by_country(long_df, 'Switzerland', title='Switzerland')
 ```
 
 # Sweden {#sweden}

@@ -3,6 +3,8 @@ from .charts import (
     KPI_LABELS,
     prepare_by_kpi_all_countries,
     facet_chart_by_country,
+    # build_chart_title,
+    # add_disclaimer
 )
 
 __all__ = [
@@ -10,4 +12,6 @@ __all__ = [
     "KPI_LABELS",
     "prepare_by_kpi_all_countries",
     "facet_chart_by_country",
+    # "build_chart_title",
+    # "add_disclaimer"
 ]
