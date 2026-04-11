@@ -1,125 +1,203 @@
+"""
+kpi_engine/charts.py
+====================
+Layer 2 — New chart builders for the NiceGUI dashboard.
+
+🔒 `facet_chart_by_country` lives in data.py and is NOT touched here.
+   All new functions operate on the output of compute.py (time-series format).
+
+Input contract for all builders:
+    DataFrame with columns: year, kpi, value
+    (output of aggregate_time_series or filter_data)
+"""
+
+from __future__ import annotations
+
 import pandas as pd
 import altair as alt
 
-
-# ── KPI metadata ───────────────────────────────────────────────────────────────
-
-KPI_LABELS = {
-    'c1_visits':         'c1_visits',
-    'c2_user':           'c2_user',
-    'c3_pdoDeliver_pid': 'c3_pdoDeliver_pid',
-    'c4_events':         'c4_events',
-    'c6_eAttendees':     'c6_eAttendees',
-    'c8_allEvent':       'c8_allEvent',
-    'c10_pdoStored_pid': 'c10_pdoStored_pid',
-    'c13_staff':         'c13_staff',
-    'c14_nfunds':        'c14_nfunds',
-    'c15_cstaff':        'c15_cstaff',
-    'c16_cfunds':        'c16_cfunds',
-    'c19_pub':           'c19_pub',
-}
-
-STATUS_DOMAIN = ['Validated', 'To be validated', 'Missing']
-STATUS_RANGE  = ['steelblue', 'grey', 'red']
+from .static_dashboard import STATUS_DOMAIN, STATUS_RANGE
 
 
-# ── Data helpers ───────────────────────────────────────────────────────────────
+# ── Shared theme ───────────────────────────────────────────────────────────────
 
-def load_data(source: str = 'data/sp_data.csv') -> pd.DataFrame:
-    return pd.read_csv(source)
-
-
-def clean_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
-    """Coerce a column to numeric, converting invalid values to NaN."""
-    df = df.copy()
-    df[col] = pd.to_numeric(df[col], errors='coerce')
-    return df
+_FONT = 'IBM Plex Sans'
+_COLOR_PRIMARY = '#2563EB'   # blue-600
+_COLOR_MEDIAN  = '#059669'   # emerald-600
 
 
-def prepare_by_kpi_all_countries(df: pd.DataFrame, kpis: list[str]) -> pd.DataFrame:
-    """Aggregate per country + year, melt into long format grouped by KPI.
-
-    Returns columns: year, countryname, kpi, value
-    """
-    frames = []
-    for col in kpis:
-        tmp = clean_column(df, col)
-        agg = tmp.groupby(['countryname', 'year'])[col].sum(min_count=1).reset_index()
-        agg = agg.rename(columns={col: 'value'})
-        agg['kpi'] = KPI_LABELS.get(col, col)
-        frames.append(agg)
-    return pd.concat(frames, ignore_index=True)
-
-
-# ── Chart helper ───────────────────────────────────────────────────────────────
-
-def facet_chart_by_country(
-    data: pd.DataFrame,
-    country: str,
-    title: str,
-    columns: int = 4,
-) -> alt.FacetChart:
-    country_data = data[data['countryname'] == country].copy()
-    country_data['status'] = country_data.apply(
-        lambda r: 'To be validated' if r['year'] == 2026
-        else ('Validated' if pd.notna(r['value']) else 'Missing'),
-        axis=1,
-    )
-
-    base = alt.Chart(country_data)
-    xy = dict(
-        x=alt.X('year:O', title=None),
-        y=alt.Y('value:Q', title=None, axis=alt.Axis(tickCount=3, grid=False)),
-    )
-    color = alt.Color(
-        'status:N',
-        scale=alt.Scale(domain=STATUS_DOMAIN, range=STATUS_RANGE),
-    )
-
-    line = base.mark_line(color='steelblue').encode(**xy)
-
-    dots = (
-        base.transform_filter('isValid(datum.value)')
-        .mark_point(filled=True)
-        .encode(
-            **xy,
-            color=color,
-            size=alt.condition(
-                alt.datum.year == 2026,
-                alt.value(120),
-                alt.value(50),
-            ),
+def _base_theme() -> dict:
+    return dict(
+        config=alt.Config(
+            font=_FONT,
+            view=alt.ViewConfig(stroke=None),
+            axis=alt.AxisConfig(grid=False, labelColor='#6b7280', titleColor='#374151'),
+            legend=alt.LegendConfig(orient='top', direction='horizontal', title=None),
         )
     )
 
-    nan_markers = (
-        base.transform_filter('!isValid(datum.value)')
-        .mark_point(filled=True, size=60, opacity=0.6, strokeWidth=2)
+
+# ── Mini sparkline (for KPI table rows) ───────────────────────────────────────
+
+def build_sparkline(
+    time_series: pd.DataFrame,
+    kpi: str,
+    width: int = 120,
+    height: int = 40,
+) -> alt.Chart:
+    """Compact line chart for embedding in a KPI table row.
+
+    Parameters
+    ----------
+    time_series:
+        Aggregated series with columns: year, kpi, value.
+    kpi:
+        KPI id to plot (filters the dataframe internally).
+    width, height:
+        Chart pixel dimensions.
+
+    Returns
+    -------
+    Altair Chart (no title, no axis labels).
+    """
+    data = time_series[time_series['kpi'] == kpi].dropna(subset=['value'])
+
+    base = alt.Chart(data).encode(
+        x=alt.X('year:O', axis=None),
+        y=alt.Y('value:Q', axis=None, scale=alt.Scale(zero=False)),
+    )
+
+    line = base.mark_line(color=_COLOR_PRIMARY, strokeWidth=1.5)
+    dot  = base.mark_point(filled=True, size=30, color=_COLOR_PRIMARY)
+
+    return (line + dot).properties(width=width, height=height)
+
+
+# ── Full KPI line chart (for detail panel) ────────────────────────────────────
+
+def build_kpi_chart(
+    time_series: pd.DataFrame,
+    kpi: str,
+    title: str = '',
+    width: int = 320,
+    height: int = 180,
+    show_sum: bool = True,
+    show_median: bool = False,
+) -> alt.LayerChart:
+    """Full-size line chart for a single KPI, with optional sum/median overlays.
+
+    Parameters
+    ----------
+    time_series:
+        Aggregated series — columns: year, kpi, value.
+        Pass the output of ``aggregate_time_series`` (already one row per year).
+    kpi:
+        KPI id to plot.
+    title:
+        Chart title.  Empty string → no title.
+    show_sum, show_median:
+        Which aggregation lines to render.  At least one must be True.
+    """
+    data = time_series[time_series['kpi'] == kpi].copy()
+
+    layers = []
+
+    if show_sum:
+        sum_data = data.dropna(subset=['value'])
+        layers.append(
+            alt.Chart(sum_data)
+            .mark_line(color=_COLOR_PRIMARY, strokeWidth=2)
+            .encode(
+                x=alt.X('year:O', title=None),
+                y=alt.Y('value:Q', title=None, axis=alt.Axis(tickCount=4, grid=False)),
+                tooltip=[alt.Tooltip('year:O'), alt.Tooltip('value:Q', format=',.0f')],
+            )
+        )
+        layers.append(
+            alt.Chart(sum_data)
+            .mark_point(filled=True, size=50, color=_COLOR_PRIMARY)
+            .encode(x='year:O', y='value:Q')
+        )
+
+    chart = alt.layer(*layers).properties(width=width, height=height)
+
+    if title:
+        chart = chart.properties(
+            title=alt.TitleParams(text=title, fontSize=13, fontWeight='normal', color='#374151')
+        )
+
+    return chart.configure(**_base_theme()['config'].to_dict())
+
+
+# ── Comparison chart (selected countries vs. global median) ───────────────────
+
+def build_comparison_chart(
+    long_df: pd.DataFrame,
+    kpi: str,
+    selected_countries: list[str],
+    width: int = 400,
+    height: int = 200,
+) -> alt.LayerChart:
+    """Overlay selected country lines against the cross-country median.
+
+    Parameters
+    ----------
+    long_df:
+        Filtered long-format dataframe (countryname, year, kpi, value).
+        Typically the ``filtered`` key from ``compute_dashboard_data``.
+    kpi:
+        KPI id to plot.
+    selected_countries:
+        Countries to highlight individually.
+    """
+    data = long_df[long_df['kpi'] == kpi].copy()
+
+    # Global median band
+    median_df = (
+        data.groupby('year')['value']
+        .median()
+        .reset_index()
+        .rename(columns={'value': 'median'})
+    )
+
+    median_layer = (
+        alt.Chart(median_df)
+        .mark_line(
+            color=_COLOR_MEDIAN,
+            strokeWidth=1.5,
+            strokeDash=[4, 3],
+            opacity=0.7,
+        )
+        .encode(
+            x=alt.X('year:O', title=None),
+            y=alt.Y('median:Q', title=None, axis=alt.Axis(tickCount=4, grid=False)),
+            tooltip=[
+                alt.Tooltip('year:O'),
+                alt.Tooltip('median:Q', title='Global median', format=',.0f'),
+            ],
+        )
+    )
+
+    # Selected countries
+    selected_df = data[data['countryname'].isin(selected_countries)].dropna(subset=['value'])
+
+    country_layer = (
+        alt.Chart(selected_df)
+        .mark_line(strokeWidth=2)
         .encode(
             x='year:O',
-            y=alt.value(0),
-            color=color,
+            y=alt.Y('value:Q', title=None),
+            color=alt.Color('countryname:N', legend=alt.Legend(title='Country')),
+            tooltip=[
+                alt.Tooltip('countryname:N'),
+                alt.Tooltip('year:O'),
+                alt.Tooltip('value:Q', format=',.0f'),
+            ],
         )
     )
 
     return (
-        (line + dots + nan_markers)
-        .properties(width=300)
-        .facet(
-            facet=alt.Facet(
-                'kpi:N',
-                header=alt.Header(titleOrient='bottom', labelOrient='bottom'),
-                title=None,
-            ),
-            columns=columns,
-        )
-        .resolve_scale(y='independent')
-        .resolve_axis(x='independent')
-        .properties(
-            title=alt.TitleParams(
-                text=title, fontSize=16, fontWeight='bold', anchor='middle',
-            )
-        )
-        .configure_view(stroke=None)
-        .configure_legend(orient='top', direction='horizontal', title=None)
+        alt.layer(median_layer, country_layer)
+        .properties(width=width, height=height)
+        .configure(**_base_theme()['config'].to_dict())
     )

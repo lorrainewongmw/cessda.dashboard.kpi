@@ -15,6 +15,7 @@
     pkgs.python3Packages.jupyter
     pkgs.python3Packages.notebook
     pkgs.libxml2
+    pkgs.zlib
     pkgs.quarto
   ];
   # https://devenv.sh/scripts/
