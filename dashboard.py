@@ -24,7 +24,9 @@ from starlette.requests import Request
 
 from sp_analysis import (
     load_data,
-    prepare_by_kpi_all_countries,
+    dynamic_db_prepare_by_kpi_all_countries,
+    filter_data,
+    aggregate_time_series,
     KPI_IDS,
     OBJECTIVES,
     get_entry,
@@ -36,7 +38,7 @@ from sp_analysis import (
 # ── Bootstrap data (shared, loaded once) ───────────────────────────────────────
 
 raw = load_data()
-long_df: pd.DataFrame = prepare_by_kpi_all_countries(raw, KPI_IDS)
+long_df: pd.DataFrame = dynamic_db_prepare_by_kpi_all_countries(raw, KPI_IDS)
 
 ALL_COUNTRIES: list[str] = sorted(long_df['countryname'].dropna().unique().tolist())
 ALL_YEARS: list[int] = sorted(long_df['year'].dropna().unique().tolist())
@@ -192,7 +194,7 @@ def main_page(request: Request) -> None:
                 country_select = (
                     ui.select(
                         options=ALL_COUNTRIES,
-                        multiple=True,
+                        multiple=False,
                         label='Filter countries',
                         value=list(state.selected_countries),
                     )
@@ -201,7 +203,8 @@ def main_page(request: Request) -> None:
                 )
 
                 def on_country_change():
-                    state.set_countries(country_select.value or [])
+                    val = country_select.value
+                    state.set_countries([val] if val else [])
                     _push_url(state)
                     refresh_table()
 
@@ -247,27 +250,27 @@ def main_page(request: Request) -> None:
 
             ui.separator()
 
-            # ── Aggregation mode ───────────────────────────────────────────
-            with ui.column().classes('gap-2'):
-                ui.label('Aggregation').classes('section-header')
-                agg_toggle = ui.toggle(
-                    options={'sum': 'Sum', 'median': 'Median'},
-                    value=state.agg_mode,
-                ).props('dense')
+            # # ── Aggregation mode ───────────────────────────────────────────
+            # with ui.column().classes('gap-2'):
+            #     ui.label('Aggregation').classes('section-header')
+            #     agg_toggle = ui.toggle(
+            #         options={'sum': 'Sum', 'median': 'Median'},
+            #         value=state.agg_mode,
+            #     ).props('dense')
 
-                def on_agg_change():
-                    state.set_agg_mode(agg_toggle.value)
-                    _push_url(state)
-                    refresh_table()
+            #     def on_agg_change():
+            #         state.set_agg_mode(agg_toggle.value)
+            #         _push_url(state)
+            #         refresh_table()
 
-                agg_toggle.on('update:model-value', on_agg_change)
+            #     agg_toggle.on('update:model-value', on_agg_change)
 
-            ui.separator()
+            # ui.separator()
 
             # ── Reset ──────────────────────────────────────────────────────
             def on_reset():
                 state.reset()
-                country_select.set_value([])
+                country_select.set_value(None)
                 year_start.set_value(YEAR_MIN)
                 year_end.set_value(YEAR_MAX)
                 agg_toggle.set_value('sum')
@@ -288,8 +291,8 @@ def main_page(request: Request) -> None:
             def build_table_header():
                 with ui.row().classes('w-full px-4 py-2 bg-slate-100 rounded-t gap-0'):
                     ui.label('KPI').classes('section-header flex-1')
-                    ui.label('Sum').classes('section-header w-28 text-right')
-                    ui.label('Median').classes('section-header w-28 text-right')
+                    # ui.label('Sum').classes('section-header w-28 text-right')
+                    # ui.label('Median').classes('section-header w-28 text-right')
                     ui.label('Countries').classes('section-header w-20 text-right')
                     ui.label('Trend').classes('section-header w-32 text-right')
 
@@ -325,8 +328,8 @@ def main_page(request: Request) -> None:
                         unit_text  = entry.unit  if entry else ''
 
                         row_stats  = stats_index.loc[kpi_id] if kpi_id in stats_index.index else None
-                        sum_val    = row_stats['sum']         if row_stats is not None else None
-                        median_val = row_stats['median']      if row_stats is not None else None
+                        # sum_val    = row_stats['sum']         if row_stats is not None else None
+                        # median_val = row_stats['median']      if row_stats is not None else None
                         n_val      = row_stats['n_countries'] if row_stats is not None else None
 
                         with ui.row().classes(
@@ -337,14 +340,18 @@ def main_page(request: Request) -> None:
                                 if entry and entry.description:
                                     ui.label(unit_text).classes('text-xs text-slate-400')
 
-                            ui.label(_fmt_number(sum_val)).classes('stat-cell w-28 text-right')
-                            ui.label(_fmt_number(median_val)).classes('stat-cell w-28 text-right')
+                            # ui.label(_fmt_number(sum_val)).classes('stat-cell w-28 text-right')
+                            # ui.label(_fmt_number(median_val)).classes('stat-cell w-28 text-right')
                             ui.label(_fmt_number(n_val)).classes('stat-cell w-20 text-right text-slate-400')
 
                             with ui.element('div').classes('w-32 flex justify-end'):
                                 kpi_ts = ts_df[ts_df['kpi'] == kpi_id]
                                 if not kpi_ts.dropna(subset=['value']).empty:
-                                    spark = build_sparkline(ts_df, kpi_id, width=120, height=36)
+                                    all_countries_ts = aggregate_time_series(
+                                        filter_data(long_df, kpis=[kpi_id], year_range=state.year_range),
+                                        mode='median'
+                                    )
+                                    spark = build_sparkline(ts_df, kpi_id, width=120, height=36, baseline_ts=all_countries_ts)
                                     ui.altair(spark).classes('w-32')
                                 else:
                                     ui.label('No data').classes('text-xs text-slate-300')

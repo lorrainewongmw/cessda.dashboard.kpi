@@ -38,40 +38,37 @@ def _base_theme() -> dict:
 
 
 # ── Mini sparkline (for KPI table rows) ───────────────────────────────────────
-
 def build_sparkline(
-    time_series: pd.DataFrame,
-    kpi: str,
+    ts_df: pd.DataFrame,
+    kpi_id: str,
     width: int = 120,
-    height: int = 40,
+    height: int = 36,
+    baseline_ts: pd.DataFrame | None = None,
 ) -> alt.Chart:
-    """Compact line chart for embedding in a KPI table row.
-
-    Parameters
-    ----------
-    time_series:
-        Aggregated series with columns: year, kpi, value.
-    kpi:
-        KPI id to plot (filters the dataframe internally).
-    width, height:
-        Chart pixel dimensions.
-
-    Returns
-    -------
-    Altair Chart (no title, no axis labels).
-    """
-    data = time_series[time_series['kpi'] == kpi].dropna(subset=['value'])
-
-    base = alt.Chart(data).encode(
+    kpi_ts = ts_df[ts_df['kpi'] == kpi_id][['year', 'value']]
+    
+    base = alt.Chart(kpi_ts).mark_line(color='#2563eb', strokeWidth=1.5).encode(
         x=alt.X('year:O', axis=None),
         y=alt.Y('value:Q', axis=None, scale=alt.Scale(zero=False)),
     )
-
-    line = base.mark_line(color=_COLOR_PRIMARY, strokeWidth=1.5)
-    dot  = base.mark_point(filled=True, size=30, color=_COLOR_PRIMARY)
-
-    return (line + dot).properties(width=width, height=height)
-
+    
+    layers = [base]
+    
+    if baseline_ts is not None:
+        bl_ts = baseline_ts[baseline_ts['kpi'] == kpi_id][['year', 'value']]
+        baseline = alt.Chart(bl_ts).mark_line(
+            color='#94a3b8', strokeWidth=1, strokeDash=[2, 2]
+        ).encode(
+            x=alt.X('year:O', axis=None),
+            y=alt.Y('value:Q', axis=None, scale=alt.Scale(zero=False)),
+        )
+        layers.append(baseline)
+    
+    return (
+        alt.layer(*layers)
+        .properties(width=width, height=height)
+        .configure_view(strokeWidth=0)
+    )
 
 # ── Full KPI line chart (for detail panel) ────────────────────────────────────
 
