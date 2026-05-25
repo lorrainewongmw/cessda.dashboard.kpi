@@ -77,7 +77,7 @@ def facet_chart_by_country(
 ) -> alt.FacetChart:
     country_data = data[data['countryname'] == country].copy()
     country_data['status'] = country_data.apply(
-        lambda r: 'To be validated' if r['year'] == 2026
+        lambda r: 'To be validated' if r['year'] == 2025
         else ('Validated' if pd.notna(r['value']) else 'Missing'),
         axis=1,
     )
@@ -101,7 +101,7 @@ def facet_chart_by_country(
             **xy,
             color=color,
             size=alt.condition(
-                alt.datum.year == 2026,
+                alt.datum.year == 2025,
                 alt.value(120),
                 alt.value(50),
             ),
