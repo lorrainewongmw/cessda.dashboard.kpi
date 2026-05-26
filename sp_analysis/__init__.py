@@ -5,6 +5,7 @@ from .static_dashboard import (
     STATUS_DOMAIN,
     STATUS_RANGE,
     prepare_by_kpi_all_countries,
+    dynamic_db_prepare_by_kpi_all_countries,
     facet_chart_by_country,
 )
 
@@ -40,6 +41,7 @@ __all__ = [
     "load_data",
     "clean_column",
     "prepare_by_kpi_all_countries",
+    "dynamic_db_prepare_by_kpi_all_countries",
     "facet_chart_by_country",'KPIEntry', 'KPI_REGISTRY', 'KPI_IDS', 'OBJECTIVES',
     'get_kpis_for_objective', 'get_entry',
      'filter_data', 'aggregate_time_series', 'latest_stats', 'compute_dashboard_data',
