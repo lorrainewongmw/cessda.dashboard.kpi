@@ -66,9 +66,9 @@ This dashboard supports the validation of data. Here are some general instructio
   - **Left sidebar**: Select your country to view the SP-specific dashboard
   - **Top right corner [...]**: Download your dashboard as an image or view source code
   - **Legends**: 
-    - Blue: Validated data
-    - Grey: 2025 data pending validation
-    - Red: Missing/unavailable data (displayed as outlier)
+    - [Blue]{style="color: blue;"}: Validated data
+    - [Grey]{style="color: grey;"}: 2025 data pending validation
+    - [Red]{style="color: red;"}: Missing/unavailable data (displayed as outlier)
 
 Note: Please refer to the validation Excel file for the categorical KPIs (i.e., C-KPI-07, 09, 18, 19a)
 
