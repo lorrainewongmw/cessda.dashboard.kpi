@@ -10,7 +10,7 @@ env:
 
 jobs:
   build:
-    runs-on: self-owner
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -36,10 +38,8 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
