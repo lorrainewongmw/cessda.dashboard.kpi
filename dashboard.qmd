@@ -47,9 +47,8 @@ long_df = prepare_by_kpi_all_countries(df, ALL_KPIS)
   <a class="nav-link" href="#hungary">Hungary</a>
   <a class="nav-link" href="#ireland">Ireland</a>
   <a class="nav-link" href="#iceland">Iceland</a>
-  <a class="nav-link" href="#lithuania">lithuania</a>
   <a class="nav-link" href="#italy">Italy</a>
-  <a class="nav-link" href="#Lithuania">Lithuania</a>
+  <a class="nav-link" href="#lithuania">Lithuania</a>
   <a class="nav-link" href="#netherlands">Netherlands</a>
   <a class="nav-link" href="#norway">Norway</a>
   <a class="nav-link" href="#macedonia">North Macedonia</a>
@@ -78,12 +77,12 @@ Here are some general instructions for navigating the country pages:
     - [Red]{style="color: red;"}: Missing/unavailable data (displayed as outlier)
   - **Note**: Please refer to the validation Excel file for the categorical KPIs (i.e., C-KPI-07, 09, 18, 19a)
 
-Next steps (to be completed by **2 July 2026**):
+<h3>Next steps (to be completed by **2 July 2026**):</h3>
 
 1. Complete this short 3-question feedback [survey](https://forms.gle/KJnVJj9qKyhUJCm87). One response per SP is sufficient.
-1. If you identified any errors, please add your comments directly in the [Excel file](https://docs.google.com/spreadsheets/d/1m9Phl1uxPN9hL4zmgSGFMOFs1X-UmjxP/edit?gid=663340094#gid=663340094).
+1. If you identified any errors, please add your comments directly to the [Excel file](https://docs.google.com/spreadsheets/d/1m9Phl1uxPN9hL4zmgSGFMOFs1X-UmjxP/edit?gid=663340094#gid=663340094).
 
-If you have any questions, please contact Lorraine Wong, Senior Science Officer at the CESSDA Main Office <lorraine.wong@cessda.eu>.
+If you have any questions, please contact Lorraine Wong, Senior Science Officer at the CESSDA Main Office: <lorraine.wong@cessda.eu>.
 
 Thank you for your time and input!
 
